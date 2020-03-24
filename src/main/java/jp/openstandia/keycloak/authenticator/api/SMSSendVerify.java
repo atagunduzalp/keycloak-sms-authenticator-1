@@ -20,11 +20,19 @@ import javax.net.ssl.HttpsURLConnection;
 
 import org.jboss.logging.Logger;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 public class SMSSendVerify {
 
 	private static final Logger logger = Logger.getLogger(SMSSendVerify.class.getPackage().getName());
 
-	public static final String DEFAULT_API_URI = "https://api.authy.com";
+	private static String ID;
+
+//	public static final String DEFAULT_API_URI = "https://api.authy.com";
+	public static final String DEFAULT_API_URI = "https://svc.vkk.io/otp-v1-dev/generate";
+	public static final String VERIFY_API_URI = "https://svc.vkk.io/otp-v1-dev/verify";
+
 	public static final String PHONE_VERIFICATION_API_PATH = "/protected/json/phones/verification/";
 
 	public static final String METHOD_POST = "POST";
@@ -47,28 +55,43 @@ public class SMSSendVerify {
 	public boolean sendSMS(String telNum) {
 
 		SMSParams data = new SMSParams();
-		data.setAttribute("phone_number", telNum);
-		data.setAttribute("country_code", "81"); // JAPAN
-		data.setAttribute("via", "sms"); // SMS
-		data.setAttribute("code_length", codeLen);
+//		data.setAttribute("phone_number", telNum);
+//		data.setAttribute("country_code", "90"); // JAPAN
+//		data.setAttribute("via", "sms"); // SMS
+//		data.setAttribute("code_length", codeLen);
 
+		data.setAttribute("type", "mail");
+		data.setAttribute("verificationMode", "strict");
+		data.setAttribute("recipients", "mustafa.dumlupinar@iys.org.tr");
+		data.setAttribute("originService", "hs-preapp/verify-user");
+
+		logger.info("before request..." + data.toJSON());
 		return request(METHOD_POST, PHONE_VERIFICATION_API_PATH + "start", data);
 	}
 
 	public boolean verifySMS(String telNum, String code) {
 
 		SMSParams data = new SMSParams();
-		data.setAttribute("phone_number", telNum);
-		data.setAttribute("country_code", "81");
-		data.setAttribute("verification_code", code);
-		data.setAttribute("code_length", codeLen);
 
-		return request(METHOD_GET, PHONE_VERIFICATION_API_PATH + "check", data);
+//		data.setAttribute("phone_number", telNum);
+//		data.setAttribute("country_code", "81");
+//		data.setAttribute("verification_code", code);
+//		data.setAttribute("code_length", codeLen);
+
+		data.setAttribute("code", code);
+		logger.info("ID: " + ID);
+		data.setAttribute("id", ID);
+		data.setAttribute("type", "mail");
+		data.setAttribute("verificationMode", "strict");
+		data.setAttribute("recipients", "mustafa.dumlupinar@iys.org.tr");
+		data.setAttribute("originService", "hs-preapp/verify-user");
+
+		return request(METHOD_POST, PHONE_VERIFICATION_API_PATH + "check", data);
 	}
 
 	private boolean request(String method, String path, SMSParams data) {
 		boolean result = false;
-
+		logger.info("request method.");
 		HttpsURLConnection conn;
 		InputStream in = null;
 		BufferedReader reader = null;
@@ -79,7 +102,15 @@ public class SMSSendVerify {
 				sb.append(prepareGet(data));
 			}
 
-			URL url = new URL(DEFAULT_API_URI + path + sb.toString());
+//			URL url = new URL(DEFAULT_API_URI + path + sb.toString());
+			logger.info("sb to string: " + sb.toString());
+
+			URL url = new URL(DEFAULT_API_URI + sb.toString());
+			if (path.contains("check")) {
+				url = new URL(VERIFY_API_URI + sb.toString());
+			}
+
+			logger.info("url: " + url);
 
 			if (isProxy) {
 				Proxy proxy = new Proxy(Proxy.Type.HTTP,
@@ -88,11 +119,12 @@ public class SMSSendVerify {
 			} else {
 				conn = (HttpsURLConnection) url.openConnection();
 			}
+			logger.info("api-key: " + apiKey);
 			conn.setRequestMethod(method);
 			conn.setRequestProperty("Accept", "application/json");
 			conn.setRequestProperty("Content-Type", "application/json");
 			conn.setDoOutput(true);
-			conn.setRequestProperty("X-Authy-API-Key", apiKey); // API-KEY
+//			conn.setRequestProperty("X-Authy-API-Key", apiKey); // API-KEY
 
 			if (method.equals(METHOD_POST)) {
 				writeJson(conn, data);
@@ -105,9 +137,16 @@ public class SMSSendVerify {
 				in = conn.getInputStream();
 				reader = new BufferedReader(new InputStreamReader(in, "UTF-8"));
 
-				String line;
-				while ((line = reader.readLine()) != null) {
-					logger.infov("RESPONSE DETAIL : {0}", line);
+				if (!path.contains("check")) {
+					String line;
+					while ((line = reader.readLine()) != null) {
+						logger.info("reader: " + reader.toString());
+						logger.infov("RESPONSE DETAIL : {0}", line);
+						JsonObject parse = new JsonParser().parse(line).getAsJsonObject();
+						JsonObject payloadObject = parse.get("payload").getAsJsonObject();
+						logger.info("payload object: " + payloadObject);
+						ID = payloadObject.get("id").getAsString();
+					}
 				}
 				result = true;
 			}
@@ -144,7 +183,9 @@ public class SMSSendVerify {
 		try {
 			os = connection.getOutputStream();
 			output = new BufferedWriter(new OutputStreamWriter(os, "UTF-8"));
-			output.write(data.toJSON());
+			String dataJson = data.toJSON();
+			logger.info("data json: " + dataJson);
+			output.write(dataJson);
 			output.flush();
 			output.close();
 		} catch (IOException e) {

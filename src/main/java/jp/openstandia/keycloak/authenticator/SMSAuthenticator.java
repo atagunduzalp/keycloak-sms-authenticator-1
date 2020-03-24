@@ -19,15 +19,18 @@ import jp.openstandia.keycloak.authenticator.api.SMSSendVerify;
 public class SMSAuthenticator implements Authenticator {
 
 	private static final Logger logger = Logger.getLogger(SMSAuthenticator.class.getPackage().getName());
+	
+	private static String ID;
 
 	public void authenticate(AuthenticationFlowContext context) {
-		logger.debug("Method [authenticate]");
+		logger.info("Method [authenticate]");
 
 		AuthenticatorConfigModel config = context.getAuthenticatorConfig();
 
 		UserModel user = context.getUser();
+		logger.info("user email: " + user.getEmail());
 		String phoneNumber = getPhoneNumber(user);
-		logger.debugv("phoneNumber : {0}", phoneNumber);
+		logger.infov("phoneNumber : {0}", phoneNumber);
 
 		if (phoneNumber != null) {
 
@@ -38,6 +41,7 @@ public class SMSAuthenticator implements Authenticator {
 					getConfigString(config, SMSAuthContstants.CONFIG_PROXY_PORT),
 					getConfigString(config, SMSAuthContstants.CONFIG_CODE_LENGTH));
 
+			logger.info("send sms method starts: ");
 			if (sendVerify.sendSMS(phoneNumber)) {
 				Response challenge = context.form().createForm("sms-validation.ftl");
 				context.challenge(challenge);
@@ -57,7 +61,7 @@ public class SMSAuthenticator implements Authenticator {
 	}
 
 	public void action(AuthenticationFlowContext context) {
-		logger.debug("Method [action]");
+		logger.info("Method [action]");
 
 		MultivaluedMap<String, String> inputData = context.getHttpRequest().getDecodedFormParameters();
 		String enteredCode = inputData.getFirst("smsCode");
