@@ -60,9 +60,9 @@ public class SMSSendVerify {
 //		data.setAttribute("via", "sms"); // SMS
 //		data.setAttribute("code_length", codeLen);
 
-		data.setAttribute("type", "mail");
+		data.setAttribute("type", "sms");
 		data.setAttribute("verificationMode", "strict");
-		data.setAttribute("recipients", "mustafa.dumlupinar@iys.org.tr");
+		data.setAttribute("recipients", telNum);
 		data.setAttribute("originService", "hs-preapp/verify-user");
 
 		logger.info("before request..." + data.toJSON());
@@ -81,9 +81,9 @@ public class SMSSendVerify {
 		data.setAttribute("code", code);
 		logger.info("ID: " + ID);
 		data.setAttribute("id", ID);
-		data.setAttribute("type", "mail");
+		data.setAttribute("type", "sms");
 		data.setAttribute("verificationMode", "strict");
-		data.setAttribute("recipients", "mustafa.dumlupinar@iys.org.tr");
+		data.setAttribute("recipients", telNum);
 		data.setAttribute("originService", "hs-preapp/verify-user");
 
 		return request(METHOD_POST, PHONE_VERIFICATION_API_PATH + "check", data);
