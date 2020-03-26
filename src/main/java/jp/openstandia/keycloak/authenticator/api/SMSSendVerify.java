@@ -112,7 +112,8 @@ public class SMSSendVerify {
 
 			logger.info("url: " + url);
 
-			if (isProxy) {
+//			if (isProxy) {
+			if (false) {
 				Proxy proxy = new Proxy(Proxy.Type.HTTP,
 						new InetSocketAddress(this.proxyUrl, Integer.parseInt(this.proxyPort)));
 				conn = (HttpsURLConnection) url.openConnection(proxy);
@@ -137,18 +138,22 @@ public class SMSSendVerify {
 				in = conn.getInputStream();
 				reader = new BufferedReader(new InputStreamReader(in, "UTF-8"));
 
-				if (!path.contains("check")) {
-					String line;
-					while ((line = reader.readLine()) != null) {
-						logger.info("reader: " + reader.toString());
-						logger.infov("RESPONSE DETAIL : {0}", line);
-						JsonObject parse = new JsonParser().parse(line).getAsJsonObject();
-						JsonObject payloadObject = parse.get("payload").getAsJsonObject();
-						logger.info("payload object: " + payloadObject);
+				String line;
+				while ((line = reader.readLine()) != null) {
+					logger.info("reader: " + reader.toString());
+					logger.infov("RESPONSE DETAIL : {0}", line);
+					JsonObject parse = new JsonParser().parse(line).getAsJsonObject();
+					JsonObject payloadObject = parse.get("payload").getAsJsonObject();
+					logger.info("payload object: " + payloadObject);
+					if (!path.contains("check")) {
 						ID = payloadObject.get("id").getAsString();
+						result = true;
+					} else {
+						boolean isVerifed = payloadObject.get("verified").getAsBoolean();
+						logger.info("isVerifed: " + isVerifed);
+						result = isVerifed;
 					}
 				}
-				result = true;
 			}
 
 		} catch (IOException e) {

@@ -19,41 +19,59 @@ import jp.openstandia.keycloak.authenticator.api.SMSSendVerify;
 public class SMSAuthenticator implements Authenticator {
 
 	private static final Logger logger = Logger.getLogger(SMSAuthenticator.class.getPackage().getName());
-	
-	private static String ID;
 
 	public void authenticate(AuthenticationFlowContext context) {
 		logger.info("Method [authenticate]");
 
+		MultivaluedMap<String, String> formParameters = context.getHttpRequest().getFormParameters();
+		for (String key : formParameters.keySet()) {
+			logger.info("parameter key: " + key);
+			logger.info("parameter value: " + formParameters.getFirst(key));
+		}
+
 		AuthenticatorConfigModel config = context.getAuthenticatorConfig();
-
 		UserModel user = context.getUser();
-		logger.info("user email: " + user.getEmail());
-		String phoneNumber = getPhoneNumber(user);
-		logger.infov("phoneNumber : {0}", phoneNumber);
 
-		if (phoneNumber != null) {
+		List<String> iysCodeList = user.getAttribute(SMSAuthContstants.ATTR_IYS_CODE);
+		for (String iysCode : iysCodeList) {
+			logger.info("IYS code of user attribute: " + iysCode);
+		}
+		String iysCode = formParameters.getFirst(SMSAuthContstants.ATTR_IYS_CODE);
+		if (iysCodeList.contains(iysCode)) {
+			logger.info("IYS code accepted.");
 
-			// SendSMS
-			SMSSendVerify sendVerify = new SMSSendVerify(getConfigString(config, SMSAuthContstants.CONFIG_SMS_API_KEY),
-					getConfigString(config, SMSAuthContstants.CONFIG_PROXY_FLAG),
-					getConfigString(config, SMSAuthContstants.CONFIG_PROXY_URL),
-					getConfigString(config, SMSAuthContstants.CONFIG_PROXY_PORT),
-					getConfigString(config, SMSAuthContstants.CONFIG_CODE_LENGTH));
+			String phoneNumber = getPhoneNumber(user);
+			logger.infov("phoneNumber : {0}", phoneNumber);
 
-			logger.info("send sms method starts: ");
-			if (sendVerify.sendSMS(phoneNumber)) {
-				Response challenge = context.form().createForm("sms-validation.ftl");
-				context.challenge(challenge);
+			if (phoneNumber != null) {
+
+				// SendSMS
+				SMSSendVerify sendVerify = new SMSSendVerify(
+						getConfigString(config, SMSAuthContstants.CONFIG_SMS_API_KEY),
+						getConfigString(config, SMSAuthContstants.CONFIG_PROXY_FLAG),
+						getConfigString(config, SMSAuthContstants.CONFIG_PROXY_URL),
+						getConfigString(config, SMSAuthContstants.CONFIG_PROXY_PORT),
+						getConfigString(config, SMSAuthContstants.CONFIG_CODE_LENGTH));
+
+				logger.info("send sms method starts: ");
+				if (sendVerify.sendSMS(phoneNumber)) {
+					Response challenge = context.form().createForm("sms-validation.ftl");
+					context.challenge(challenge);
+
+				} else {
+					Response challenge = context.form().addError(new FormMessage("sendSMSCodeErrorMessage"))
+							.createForm("sms-validation-error.ftl");
+					context.challenge(challenge);
+				}
 
 			} else {
-				Response challenge = context.form().addError(new FormMessage("sendSMSCodeErrorMessage"))
+				Response challenge = context.form().addError(new FormMessage("missingTelNumberMessage"))
 						.createForm("sms-validation-error.ftl");
 				context.challenge(challenge);
 			}
-
 		} else {
-			Response challenge = context.form().addError(new FormMessage("missingTelNumberMessage"))
+			logger.info("iys code wrong.");
+			Response challenge = context.form().addError(new FormMessage("wrongIysCode"))
 					.createForm("sms-validation-error.ftl");
 			context.challenge(challenge);
 		}
@@ -119,6 +137,7 @@ public class SMSAuthenticator implements Authenticator {
 
 	private String getConfigString(AuthenticatorConfigModel config, String configName) {
 		String value = null;
+		logger.info("config: " + config);
 		if (config.getConfig() != null) {
 			// Get value
 			value = config.getConfig().get(configName);
