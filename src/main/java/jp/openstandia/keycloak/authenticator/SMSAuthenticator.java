@@ -54,10 +54,16 @@ public class SMSAuthenticator implements Authenticator {
 						getConfigString(config, SMSAuthContstants.CONFIG_CODE_LENGTH));
 
 				logger.info("send sms method starts: ");
-				if (sendVerify.sendSMS(phoneNumber)) {
+
+				String sendSMSResponse = sendVerify.sendSMS(phoneNumber);
+				if ("OK".equals(sendSMSResponse)) {
 					Response challenge = context.form().createForm("sms-validation.ftl");
 					context.challenge(challenge);
 
+				} else if ("recipients".equals(sendSMSResponse)) {
+					Response challenge = context.form().addError(new FormMessage("recipientsError"))
+							.createForm("sms-validation-error.ftl");
+					context.challenge(challenge);
 				} else {
 					Response challenge = context.form().addError(new FormMessage("sendSMSCodeErrorMessage"))
 							.createForm("sms-validation-error.ftl");
@@ -96,7 +102,8 @@ public class SMSAuthenticator implements Authenticator {
 				getConfigString(config, SMSAuthContstants.CONFIG_PROXY_PORT),
 				getConfigString(config, SMSAuthContstants.CONFIG_CODE_LENGTH));
 
-		if (sendVerify.verifySMS(phoneNumber, enteredCode)) {
+		String verifySMSResponse = sendVerify.verifySMS(phoneNumber, enteredCode);
+		if ("OK".equals(verifySMSResponse)) {
 			logger.info("verify code check : OK");
 			context.success();
 

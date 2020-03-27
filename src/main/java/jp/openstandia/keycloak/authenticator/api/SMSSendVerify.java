@@ -20,6 +20,7 @@ import javax.net.ssl.HttpsURLConnection;
 
 import org.jboss.logging.Logger;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -52,7 +53,7 @@ public class SMSSendVerify {
 		this.codeLen = codeLen;
 	}
 
-	public boolean sendSMS(String telNum) {
+	public String sendSMS(String telNum) {
 
 		SMSParams data = new SMSParams();
 //		data.setAttribute("phone_number", telNum);
@@ -69,7 +70,7 @@ public class SMSSendVerify {
 		return request(METHOD_POST, PHONE_VERIFICATION_API_PATH + "start", data);
 	}
 
-	public boolean verifySMS(String telNum, String code) {
+	public String verifySMS(String telNum, String code) {
 
 		SMSParams data = new SMSParams();
 
@@ -89,8 +90,8 @@ public class SMSSendVerify {
 		return request(METHOD_POST, PHONE_VERIFICATION_API_PATH + "check", data);
 	}
 
-	private boolean request(String method, String path, SMSParams data) {
-		boolean result = false;
+	private String request(String method, String path, SMSParams data) {
+		String result = null;
 		logger.info("request method.");
 		HttpsURLConnection conn;
 		InputStream in = null;
@@ -143,15 +144,27 @@ public class SMSSendVerify {
 					logger.info("reader: " + reader.toString());
 					logger.infov("RESPONSE DETAIL : {0}", line);
 					JsonObject parse = new JsonParser().parse(line).getAsJsonObject();
-					JsonObject payloadObject = parse.get("payload").getAsJsonObject();
-					logger.info("payload object: " + payloadObject);
-					if (!path.contains("check")) {
-						ID = payloadObject.get("id").getAsString();
-						result = true;
+					if (!parse.has("error")) {
+						JsonObject payloadObject = parse.get("payload").getAsJsonObject();
+						logger.info("payload object: " + payloadObject);
+						if (!path.contains("check")) {
+							ID = payloadObject.get("id").getAsString();
+							result = "OK";
+						} else {
+							boolean isVerifed = payloadObject.get("verified").getAsBoolean();
+							logger.info("isVerifed: " + isVerifed);
+							if (isVerifed) {
+								result = "OK";
+							} else {
+								result = "ERROR";
+							}
+						}
 					} else {
-						boolean isVerifed = payloadObject.get("verified").getAsBoolean();
-						logger.info("isVerifed: " + isVerifed);
-						result = isVerifed;
+						JsonObject errorObject = parse.get("error").getAsJsonObject();
+						if (errorObject.has("fields")) {
+							JsonArray fieldsArray = errorObject.get("fields").getAsJsonArray();
+							result = fieldsArray.get(0).getAsJsonObject().get("param").getAsString();
+						}
 					}
 				}
 			}
